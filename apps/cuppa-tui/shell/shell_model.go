@@ -110,6 +110,10 @@ type Model struct {
 	grab, hover divider
 	// layoutFile is where the widths are remembered, or "" for nowhere.
 	layoutFile string
+	// cursorOff is true once the canvas cursor is switched off, and
+	// cursorAsked once the user was asked about it; prefsFile remembers both.
+	cursorOff, cursorAsked bool
+	prefsFile              string
 	// dragging is the component being dragged out of the palette, or "".
 	dragging string
 	mouseX   int
@@ -234,6 +238,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.route(toEvent(tea.Mouse(msg), pointer.Down))
 	case tea.MouseReleaseMsg:
 		m.route(toEvent(tea.Mouse(msg), pointer.Up))
+		m.askAboutCursor()
 	case tea.MouseMotionMsg:
 		m.route(toEvent(tea.Mouse(msg), pointer.Move))
 	case tea.MouseWheelMsg:
@@ -253,6 +258,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // in step with the editor.
 func (m *Model) settle() tea.Cmd {
 	m.flow.Resolve()
+	m.bar.SetChecked(menubar.ViewCursor, !m.cursorOff)
 	m.bar.SetEnabled(menubar.EditUndo, m.ed.CanUndo())
 	m.bar.SetEnabled(menubar.EditRedo, m.ed.CanRedo())
 	hasSel := len(m.ed.Selected()) > 0
@@ -311,6 +317,8 @@ func (m *Model) perform(a menubar.Action) {
 	switch a {
 	case menubar.ViewPreview:
 		m.togglePreview()
+	case menubar.ViewCursor:
+		m.setCursorOff(!m.cursorOff)
 	case menubar.FileNew:
 		m.flow.NewDesign()
 	case menubar.FileOpen:
@@ -441,6 +449,10 @@ func (m *Model) mouse(e pointer.Event) {
 	}
 	if target != inInspector {
 		m.ins.Leave()
+	}
+	if e.Phase == pointer.Down {
+		// A press ends the search; pressing its box again (below) reopens it.
+		m.pal.EndSearch()
 	}
 	switch target {
 	case inPalette:
@@ -621,7 +633,14 @@ func (m *Model) key(msg tea.KeyPressMsg) {
 			m.ins.Key(k.Text, back, enter, esc)
 		}
 	case m.pal.Searching():
-		m.pal.Key(k.Text, back, enter, esc)
+		switch k.Code {
+		case tea.KeyUp, tea.KeyDown:
+			// The arrows walk the matches while the query stays open.
+			m.pal.NavKey(text)
+			m.say(m.pal.Current())
+		default:
+			m.pal.Key(k.Text, back, enter, esc)
+		}
 	case m.toolKey(k):
 	case esc && m.gest.active:
 		m.cancelGesture()
@@ -635,7 +654,8 @@ func (m *Model) key(msg tea.KeyPressMsg) {
 	case esc:
 		m.endDrag()
 		m.ed.Clear()
-	case k.Code == tea.KeyDelete:
+	case k.Code == tea.KeyDelete, back && m.focus == inStage:
+		// Backspace deletes too: it is the key labelled Delete on a Mac.
 		m.ed.Delete()
 	case text == "ctrl+d":
 		m.ed.Duplicate()
@@ -724,7 +744,7 @@ func (m *Model) render() string {
 		return ""
 	}
 	l := m.layout
-	m.stg.SetCursor(m.curX, m.curY, len(m.ed.Selected()) == 0 && (m.focus == inStage || m.focus == inPalette))
+	m.stg.SetCursor(m.curX, m.curY, !m.cursorOff && len(m.ed.Selected()) == 0 && (m.focus == inStage || m.focus == inPalette))
 	pal := append(m.tb.Lines(l.tools.W, false)[:l.tools.H], m.pal.Lines()...)
 	stg := append(m.contextLines(l.options.W), m.stg.Lines()...)
 	if l.pages.H > 0 {

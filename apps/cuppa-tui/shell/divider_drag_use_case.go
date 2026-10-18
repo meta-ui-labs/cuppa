@@ -71,6 +71,7 @@ func (m *Model) RestoreLayout() {
 	m.layoutFile = filepath.Join(dir, "cuppa", "layout.json")
 	m.restoreLayoutFrom(m.layoutFile)
 	m.restorePacks()
+	m.restorePrefs(filepath.Join(dir, "cuppa", "prefs.json"))
 }
 
 func (m *Model) restoreLayoutFrom(path string) {

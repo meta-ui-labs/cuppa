@@ -1,6 +1,7 @@
 package shell
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -195,5 +196,94 @@ func TestArrangeMenuItemsReorderTheSelection(t *testing.T) {
 	m.perform(menubar.EditBackward)
 	if got := m.Editor().Document().Index(first.ID); got != 0 {
 		t.Fatalf("Back one: index %d, want 0", got)
+	}
+}
+
+func TestBackspaceDeletesTheSelectedComponentOnTheCanvas(t *testing.T) {
+	m := newShell(t)
+	place(t, m, 5)
+	send(m, tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if n := len(m.Editor().Document().Nodes); n != 0 {
+		t.Fatalf("nodes = %d, want 0", n)
+	}
+}
+
+func TestArrowsWalkTheSearchResults(t *testing.T) {
+	m := newShell(t)
+	send(m, ctrl('f'))
+	send(m, tea.KeyPressMsg{Code: 'b', Text: "b"})
+	send(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	if !m.pal.Searching() || m.pal.Current() == "" {
+		t.Fatal("the search should stay open and move to a match")
+	}
+}
+
+func TestClickingTheCanvasEndsTheSearchSoDeleteWorks(t *testing.T) {
+	m := newShell(t)
+	place(t, m, 5)
+	send(m, ctrl('f'))
+	n := m.Editor().Document().Nodes[0]
+	send(m, click(m.layout.stage.X+n.Rect.X+1, m.layout.stage.Y+n.Rect.Y+1))
+	if m.pal.Searching() {
+		t.Fatal("a click outside the search box should end the search")
+	}
+	send(m, tea.KeyPressMsg{Code: tea.KeyDelete})
+	if len(m.Editor().Document().Nodes) != 0 {
+		t.Fatal("Delete should reach the canvas once the search is over")
+	}
+}
+
+func TestCanvasCursorMenuItemTogglesAndRemembersTheChoice(t *testing.T) {
+	m := newShell(t)
+	m.restorePrefs(filepath.Join(t.TempDir(), "prefs.json"))
+	m.perform(menubar.ViewCursor)
+	if !m.cursorOff {
+		t.Fatal("the menu item should hide the cursor")
+	}
+	again := newShell(t)
+	again.restorePrefs(m.prefsFile)
+	if !again.cursorOff {
+		t.Fatal("the choice should be remembered")
+	}
+	m.perform(menubar.ViewCursor)
+	if m.cursorOff {
+		t.Fatal("the menu item should show the cursor again")
+	}
+}
+
+func TestFirstMouseClickOffersToHideTheCursorOnce(t *testing.T) {
+	m := newShell(t)
+	m.restorePrefs(filepath.Join(t.TempDir(), "prefs.json"))
+	send(m, click(m.layout.stage.X+30, m.layout.stage.Y+15))
+	send(m, release(m.layout.stage.X+30, m.layout.stage.Y+15))
+	if m.flow.Modal() == nil {
+		t.Fatal("the first click should ask about the cursor")
+	}
+	clickText(t, m, "Hide")
+	if !m.cursorOff {
+		t.Fatal("Hide should switch the cursor off")
+	}
+	other := newShell(t)
+	other.restorePrefs(m.prefsFile)
+	send(other, click(5, 5))
+	send(other, release(5, 5))
+	if other.flow.Modal() != nil {
+		t.Fatal("a question already answered is not asked again")
+	}
+}
+
+func TestKeepingTheCursorIsRememberedAndNotAskedAgain(t *testing.T) {
+	m := newShell(t)
+	m.restorePrefs(filepath.Join(t.TempDir(), "prefs.json"))
+	send(m, click(m.layout.stage.X+30, m.layout.stage.Y+15))
+	send(m, release(m.layout.stage.X+30, m.layout.stage.Y+15))
+	clickText(t, m, "Keep")
+	if m.cursorOff {
+		t.Fatal("Keep leaves the cursor on")
+	}
+	send(m, click(m.layout.stage.X+31, m.layout.stage.Y+15))
+	send(m, release(m.layout.stage.X+31, m.layout.stage.Y+15))
+	if m.flow.Modal() != nil {
+		t.Fatal("asked twice")
 	}
 }

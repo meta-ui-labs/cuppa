@@ -25,6 +25,7 @@ const (
 	EditBackward   Action = "edit.backward"
 	EditToBack     Action = "edit.toback"
 	ViewPreview    Action = "view.preview"
+	ViewCursor     Action = "view.cursor"
 	ExportPNG      Action = "export.png"
 	ExportSVG      Action = "export.svg"
 	ExportWebP     Action = "export.webp"
@@ -84,6 +85,7 @@ var menus = []menu{
 	}},
 	{"View", 'v', []item{
 		{"Preview design", "Ctrl+P", ViewPreview},
+		{"Canvas cursor", "", ViewCursor},
 	}},
 	{"Export", 'x', []item{
 		{"Image (PNG)…", "", ExportPNG},

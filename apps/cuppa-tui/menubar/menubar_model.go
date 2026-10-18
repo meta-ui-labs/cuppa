@@ -34,6 +34,9 @@ type Model struct {
 	// hoverBar is the bar label under the pointer, or -1.
 	hoverBar int
 	disabled map[Action]bool
+	// checked holds the menu items that are switches: present when it is one,
+	// true when it is on.
+	checked map[Action]bool
 	// unavailable items look greyed out but still report clicks, so the
 	// caller can explain why they do not work.
 	unavailable map[Action]bool
@@ -50,7 +53,7 @@ type Model struct {
 
 // New returns a closed bar.
 func New() *Model {
-	return &Model{open: -1, hover: -1, hoverBar: -1, disabled: map[Action]bool{}, unavailable: map[Action]bool{}}
+	return &Model{open: -1, hover: -1, hoverBar: -1, disabled: map[Action]bool{}, checked: map[Action]bool{}, unavailable: map[Action]bool{}}
 }
 
 // SetIconFont draws the logo in the bar from the Cuppa icon font. Only a host
@@ -91,6 +94,22 @@ func (m *Model) SetWidth(w int) { m.w = w }
 // SetEnabled greys out (or restores) one action.
 func (m *Model) SetEnabled(a Action, enabled bool) { m.disabled[a] = !enabled }
 
+// SetChecked makes the item a switch and says whether it is on; the menu draws
+// a tick in front of it while it is.
+func (m *Model) SetChecked(a Action, on bool) { m.checked[a] = on }
+
+// labelOf is the item's label, with the tick of a switch that is on.
+func (m *Model) labelOf(it item) string {
+	on, isSwitch := m.checked[it.action]
+	switch {
+	case on:
+		return "✓ " + it.label
+	case isSwitch:
+		return "  " + it.label
+	}
+	return it.label
+}
+
 // SetUnavailable greys out an action that still reports clicks.
 func (m *Model) SetUnavailable(a Action, unavailable bool) { m.unavailable[a] = unavailable }
 
@@ -106,6 +125,9 @@ func (m *Model) Current() string {
 	if m.open >= 0 && m.hover >= 0 {
 		it := menus[m.open].items[m.hover]
 		label := it.label
+		if on, isSwitch := m.checked[it.action]; isSwitch {
+			label += map[bool]string{true: ", on", false: ", off"}[on]
+		}
 		if it.shortcut != "" {
 			label += ", " + m.keys(it.shortcut)
 		}
@@ -278,7 +300,7 @@ func (m *Model) Line(right string) string {
 func (m *Model) dropdownWidth() int {
 	w := 0
 	for _, it := range menus[m.open].items {
-		n := ansi.StringWidth(it.label)
+		n := ansi.StringWidth(m.labelOf(it))
 		if it.shortcut != "" {
 			n += 3 + ansi.StringWidth(m.keys(it.shortcut))
 		}
@@ -309,8 +331,8 @@ func (m *Model) itemLine(i int, it item, w int) string {
 		return theme.Faded(strings.Repeat("─", w))
 	}
 	shortcut := m.keys(it.shortcut)
-	gapW := max(w-2*itemPadX-ansi.StringWidth(it.label)-ansi.StringWidth(shortcut), 1)
-	text := strings.Repeat(" ", itemPadX) + it.label + strings.Repeat(" ", gapW) + shortcut + strings.Repeat(" ", itemPadX)
+	gapW := max(w-2*itemPadX-ansi.StringWidth(m.labelOf(it))-ansi.StringWidth(shortcut), 1)
+	text := strings.Repeat(" ", itemPadX) + m.labelOf(it) + strings.Repeat(" ", gapW) + shortcut + strings.Repeat(" ", itemPadX)
 	switch {
 	case m.disabled[it.action] || m.unavailable[it.action]:
 		return theme.Faded(text)
@@ -421,6 +443,9 @@ func (m *Model) Describe() []a11y.Node {
 			continue
 		}
 		label := it.label
+		if on, isSwitch := m.checked[it.action]; isSwitch {
+			label += map[bool]string{true: ", on", false: ", off"}[on]
+		}
 		if it.shortcut != "" {
 			label += ", " + m.keys(it.shortcut)
 		}
