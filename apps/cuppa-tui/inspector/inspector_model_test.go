@@ -246,3 +246,37 @@ func TestLongTextPropertyWrapsInsidePaneAndStaysClickable(t *testing.T) {
 		t.Fatal("every wrapped line should start the edit")
 	}
 }
+
+func TestFirstKeyReplacesTheShownValueAndBackspaceClearsIt(t *testing.T) {
+	m := &Model{}
+	m.startEdit("name", "Button")
+	m.Key("", true, false, false)
+	if m.buf != "" {
+		t.Fatalf("buf = %q, want empty", m.buf)
+	}
+	m.startEdit("name", "Button")
+	m.Key("x", false, false, false)
+	m.Key("y", false, false, false)
+	m.Key("", true, false, false)
+	if m.buf != "x" {
+		t.Fatalf("buf = %q, want x", m.buf)
+	}
+}
+
+func TestFieldCursorMovesSoTextCanBeAddedAfterAComma(t *testing.T) {
+	m := &Model{}
+	m.startEdit("name", "General, Adv")
+	m.MoveCursor("end") // leaves the selection
+	m.Key("a", false, false, false)
+	m.MoveCursor("left")
+	m.MoveCursor("left")
+	m.Key("X", false, false, false)
+	if m.buf != "General, AdXva" {
+		t.Fatalf("buf = %q", m.buf)
+	}
+	m.MoveCursor("home")
+	m.MoveCursor("delete")
+	if m.buf != "eneral, AdXva" {
+		t.Fatalf("buf = %q after Delete", m.buf)
+	}
+}

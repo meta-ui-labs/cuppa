@@ -46,7 +46,7 @@ func (m *Model) stopPreview() {
 // keepsPreview is true for menu actions that do not change what is shown.
 func keepsPreview(a menubar.Action) bool {
 	switch a {
-	case menubar.ViewPreview, menubar.HelpShortcuts, menubar.HelpAbout,
+	case menubar.ViewPreview, menubar.ViewCursor, menubar.HelpShortcuts, menubar.HelpAbout,
 		menubar.ExportANSI, menubar.ExportText, menubar.ExportPNG, menubar.ExportSVG, menubar.ExportWebP:
 		return true
 	}

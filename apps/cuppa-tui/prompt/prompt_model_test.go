@@ -20,12 +20,13 @@ func click(m *Model, x, y int) {
 
 func TestTypingAndEnterReturnTheText(t *testing.T) {
 	m := open("Card")
-	m.Key("s", false, false, false)
+	m.Key("s", false, false, false) // replaces the prefilled "Card"
+	m.Key("a", false, false, false)
 	m.Key("", true, false, false)
 	m.Key("!", false, false, false)
 	m.Key("", false, true, false)
 	o, done := m.Outcome()
-	if !done || o.Canceled || o.Value != "Card!" {
+	if !done || o.Canceled || o.Value != "s!" {
 		t.Fatalf("outcome = %+v %v", o, done)
 	}
 }
@@ -67,5 +68,41 @@ func TestALongTextShowsItsEndWhereTheCursorIs(t *testing.T) {
 	shown := ansi.Strip(strings.Join(m.Lines(), "\n"))
 	if !strings.Contains(shown, "untitled-app") || !strings.Contains(shown, "…") {
 		t.Fatalf("the end of the text stays visible:\n%s", shown)
+	}
+}
+
+func TestBackspaceClearsThePrefilledTextAtOnce(t *testing.T) {
+	m := open("Card")
+	m.Key("", true, false, false)
+	if len(m.text) != 0 {
+		t.Fatalf("text = %q, want empty", string(m.text))
+	}
+	m.Key("a", false, false, false)
+	m.Key("b", false, false, false)
+	m.Key("", true, false, false)
+	if string(m.text) != "a" {
+		t.Fatalf("text = %q, want a", string(m.text))
+	}
+}
+
+func TestTheCursorMovesSoTextCanBeAddedInTheMiddle(t *testing.T) {
+	m := open("Card")
+	m.Nav("left") // deselects, cursor at the start
+	m.Nav("end")
+	m.Nav("left")
+	m.Nav("left")
+	m.Key("X", false, false, false)
+	if string(m.text) != "CaXrd" {
+		t.Fatalf("text = %q, want CaXrd", string(m.text))
+	}
+	m.Nav("delete")
+	m.Key("", true, false, false)
+	if string(m.text) != "Cad" {
+		t.Fatalf("text = %q, want Cad", string(m.text))
+	}
+	m.Nav("home")
+	m.Key(">", false, false, false)
+	if string(m.text) != ">Cad" {
+		t.Fatalf("text = %q, want >Cad", string(m.text))
 	}
 }

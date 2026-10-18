@@ -277,7 +277,7 @@ func (m *Model) behaviourPanel(b *builder, n design.Node) {
 // editable renders a value that turns into a text box when clicked.
 func (m *Model) editable(b *builder, field, value, initial string) {
 	if m.editing == field {
-		b.text(m.buf + "█")
+		b.text(m.shown())
 		return
 	}
 	if value == "" {
@@ -327,7 +327,7 @@ func (m *Model) properties(b *builder, n design.Node) {
 // textProp shows a text property wrapped to the pane; clicking any line edits it.
 func (m *Model) textProp(b *builder, field, value string) {
 	if m.editing == field {
-		m.block(b, m.buf+"█", 2, plain, nil)
+		m.block(b, m.shown(), 2, plain, nil)
 		return
 	}
 	edit := func() { m.startEdit(field, value) }
@@ -372,7 +372,7 @@ func (m *Model) propValue(b *builder, id design.NodeID, p definition.PropSpec, v
 		n, _ := strconv.Atoi(value)
 		b.addMouse(theme.Button("[-]", true), set(strconv.Itoa(n-1))).text(" ")
 		if m.editing == field {
-			b.text(m.buf + "█")
+			b.text(m.shown())
 		} else {
 			b.addStep(theme.Bold(value), func() { m.startEdit(field, value) },
 				func(d int) { set(strconv.Itoa(n + d))() })
@@ -380,7 +380,7 @@ func (m *Model) propValue(b *builder, id design.NodeID, p definition.PropSpec, v
 		b.text(" ").addMouse(theme.Button("[+]", true), set(strconv.Itoa(n+1)))
 	case definition.PropColor:
 		if m.editing == field {
-			b.text(m.buf + "█")
+			b.text(m.shown())
 		} else {
 			swatch := lipgloss.NewStyle().Background(lipgloss.Color(value)).Render("  ")
 			if value == "" {
@@ -419,7 +419,7 @@ func (m *Model) swatchRow(b *builder, n design.Node, p definition.PropSpec) {
 	field := "swatchname:" + p.Key
 	b.text("  " + theme.Faded("name "))
 	if m.editing == field {
-		b.text(m.buf + "█").end()
+		b.text(m.shown()).end()
 		return
 	}
 	at := -1

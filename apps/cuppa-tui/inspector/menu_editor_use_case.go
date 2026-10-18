@@ -73,8 +73,16 @@ func (m *Model) menuProp(b *builder, n design.Node, p definition.PropSpec, value
 	cell := func(field, shown, initial string, w int, style func(string) string) {
 		if m.editing == field {
 			r := []rune(m.buf)
+			if m.pos < len(r) && !m.fresh {
+				b.text(theme.Fit(m.shown(), w))
+				return
+			}
 			if len(r) > w-1 {
 				r = r[len(r)-(w-1):]
+			}
+			if m.fresh && len(r) > 0 {
+				b.text(theme.Selected(theme.Fit(string(r), w)))
+				return
 			}
 			b.text(theme.Fit(string(r)+"█", w))
 			return
