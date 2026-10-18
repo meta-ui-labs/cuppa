@@ -27,6 +27,8 @@ type Model struct {
 	// fresh is true until the first edit: the pre-filled text is selected, so
 	// typing replaces it and Backspace clears it.
 	fresh bool
+	// pos is the text cursor, as a rune index into text.
+	pos int
 
 	// focus is 0 for the text field, 1 for OK and 2 for Cancel.
 	focus   int
@@ -38,7 +40,7 @@ type Model struct {
 
 // New returns a prompt with the text pre-filled.
 func New(title, label, initial string) *Model {
-	return &Model{title: title, label: label, text: []rune(initial), fresh: initial != ""}
+	return &Model{title: title, label: label, text: []rune(initial), pos: len([]rune(initial)), fresh: initial != ""}
 }
 
 // Place implements modal.Modal.
@@ -53,10 +55,7 @@ func (m *Model) Rect() design.Rect { return m.rect }
 // Lines implements modal.Modal.
 func (m *Model) Lines() []string {
 	inner := m.rect.W - 6
-	field := theme.Fit(tail(string(m.text)+"█", inner), inner)
-	if m.fresh && m.focus == 0 {
-		field = theme.Selected(theme.Fit(tail(string(m.text), inner), inner))
-	}
+	field := theme.Fit(m.shown(inner), inner)
 	hint := ""
 	if m.hint != "" {
 		hint = theme.Faded(m.hint)
@@ -121,17 +120,69 @@ func (m *Model) Key(text string, back, enter, esc bool) {
 	case m.focus != 0:
 		// A button has the keyboard; typing goes nowhere.
 	case back && m.fresh:
-		m.text, m.fresh = nil, false
+		m.text, m.pos, m.fresh = nil, 0, false
 	case back:
-		if len(m.text) > 0 {
-			m.text = m.text[:len(m.text)-1]
+		if m.pos > 0 {
+			m.text = append(m.text[:m.pos-1], m.text[m.pos:]...)
+			m.pos--
 		}
 	case text != "":
 		if m.fresh {
-			m.text, m.fresh = nil, false
+			m.text, m.pos, m.fresh = nil, 0, false
 		}
-		m.text = append(m.text, []rune(text)...)
+		t := []rune(text)
+		m.text = append(m.text[:m.pos], append(t, m.text[m.pos:]...)...)
+		m.pos += len(t)
 	}
+}
+
+// moveCursor takes Left, Right, Home, End and Delete in the text field. With the
+// text still selected, Left and Home go to its start, Right and End to its end,
+// and Delete clears it.
+func (m *Model) moveCursor(name string) {
+	switch name {
+	case "left":
+		m.pos = max(m.pos-1, 0)
+		if m.fresh {
+			m.pos = 0
+		}
+	case "right":
+		m.pos = min(m.pos+1, len(m.text))
+		if m.fresh {
+			m.pos = len(m.text)
+		}
+	case "home":
+		m.pos = 0
+	case "end":
+		m.pos = len(m.text)
+	case "delete":
+		switch {
+		case m.fresh:
+			m.text, m.pos = nil, 0
+		case m.pos < len(m.text):
+			m.text = append(m.text[:m.pos], m.text[m.pos+1:]...)
+		}
+	}
+	m.fresh = false
+}
+
+// shown is the text with its cursor, kept to width cells around the cursor, or
+// highlighted while the next key will replace all of it.
+func (m *Model) shown(width int) string {
+	if m.fresh && m.focus == 0 && len(m.text) > 0 {
+		return theme.Selected(tail(string(m.text), width))
+	}
+	r := m.text
+	m.pos = min(max(m.pos, 0), len(r))
+	start := max(m.pos-(width-2), 0)
+	r, pos := r[start:], m.pos-start
+	if start > 0 {
+		r = append([]rune{'…'}, r[1:]...)
+	}
+	if pos == len(r) {
+		return string(r) + "█"
+	}
+	return string(r[:pos]) + theme.Selected(string(r[pos])) + string(r[pos+1:])
 }
 
 // Nav implements modal.Navigator: Tab and Shift+Tab move between the text
@@ -142,8 +193,12 @@ func (m *Model) Nav(name string) bool {
 		m.focus = (m.focus + 1) % 3
 	case "shift+tab":
 		m.focus = (m.focus + 2) % 3
-	case "left", "right":
+	case "left", "right", "home", "end", "delete":
 		if m.focus == 0 {
+			m.moveCursor(name)
+			return true
+		}
+		if name == "home" || name == "end" || name == "delete" {
 			return false
 		}
 		m.focus = 3 - m.focus

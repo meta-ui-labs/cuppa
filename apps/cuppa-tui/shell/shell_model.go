@@ -629,6 +629,8 @@ func (m *Model) key(msg tea.KeyPressMsg) {
 			m.ins.Step(stepSize(k))
 		case tea.KeyDown:
 			m.ins.Step(-stepSize(k))
+		case tea.KeyLeft, tea.KeyRight, tea.KeyHome, tea.KeyEnd, tea.KeyDelete:
+			m.ins.MoveCursor(text)
 		default:
 			m.ins.Key(k.Text, back, enter, esc)
 		}

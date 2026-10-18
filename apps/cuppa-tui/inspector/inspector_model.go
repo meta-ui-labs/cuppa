@@ -59,6 +59,7 @@ type Model struct {
 
 	editing string // field being typed into: "x", "y", "w", "h", "name" or "prop:<key>"
 	buf     string
+	pos     int  // the text cursor, as a rune index into buf
 	fresh   bool // the shown value is still selected: the next key replaces it
 	message string
 
@@ -247,20 +248,64 @@ func (m *Model) Key(text string, backspace, enter, escape bool) {
 		m.commit()
 	case backspace:
 		// The shown value starts out selected: Backspace clears all of it.
-		if r := []rune(m.buf); len(r) > 0 && !m.fresh {
-			m.buf = string(r[:len(r)-1])
+		r := []rune(m.buf)
+		if m.fresh || m.pos == 0 {
+			if m.fresh {
+				m.buf, m.pos = "", 0
+			}
 		} else {
-			m.buf = ""
+			m.buf, m.pos = string(r[:m.pos-1])+string(r[m.pos:]), m.pos-1
 		}
 		m.fresh = false
 	case text != "":
 		// The first character typed replaces the shown value.
 		if m.fresh {
-			m.buf = ""
+			m.buf, m.pos = "", 0
 		}
-		m.buf += text
+		r := []rune(m.buf)
+		t := []rune(text)
+		m.buf, m.pos = string(r[:m.pos])+text+string(r[m.pos:]), m.pos+len(t)
 		m.fresh = false
 	}
+}
+
+// MoveCursor takes Left, Right, Home, End and Delete while a field is edited,
+// and reports whether it used the key. With the value still selected, Left and
+// Home go to its start and Right and End to its end, and Delete clears it.
+func (m *Model) MoveCursor(name string) bool {
+	if m.editing == "" || m.menu != nil {
+		return false
+	}
+	r := []rune(m.buf)
+	switch name {
+	case "left":
+		if m.fresh {
+			m.pos = 0
+		} else {
+			m.pos = max(m.pos-1, 0)
+		}
+	case "right":
+		if m.fresh {
+			m.pos = len(r)
+		} else {
+			m.pos = min(m.pos+1, len(r))
+		}
+	case "home":
+		m.pos = 0
+	case "end":
+		m.pos = len(r)
+	case "delete":
+		switch {
+		case m.fresh:
+			m.buf, m.pos = "", 0
+		case m.pos < len(r):
+			m.buf = string(r[:m.pos]) + string(r[m.pos+1:])
+		}
+	default:
+		return false
+	}
+	m.fresh = false
+	return true
 }
 
 // shown is the text being edited with its cursor, or highlighted while the
@@ -269,11 +314,17 @@ func (m *Model) shown() string {
 	if m.fresh && m.buf != "" {
 		return theme.Selected(m.buf)
 	}
-	return m.buf + "█"
+	r := []rune(m.buf)
+	m.pos = min(max(m.pos, 0), len(r))
+	if m.pos == len(r) {
+		return m.buf + "█"
+	}
+	return string(r[:m.pos]) + theme.Selected(string(r[m.pos])) + string(r[m.pos+1:])
 }
 
 func (m *Model) startEdit(field, initial string) {
 	m.editing, m.buf, m.message, m.fresh = field, initial, "", true
+	m.pos = len([]rune(initial))
 }
 
 func (m *Model) cancelEdit() { m.editing, m.buf, m.fresh = "", "", false }
@@ -305,7 +356,7 @@ func (m *Model) Step(delta int) bool {
 		return false
 	}
 	m.buf = strconv.Itoa(n + delta)
-	m.fresh = false
+	m.pos, m.fresh = len(m.buf), false
 	m.apply(m.editing, m.buf)
 	return true
 }

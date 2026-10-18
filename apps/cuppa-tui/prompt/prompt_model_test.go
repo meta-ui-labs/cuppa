@@ -84,3 +84,25 @@ func TestBackspaceClearsThePrefilledTextAtOnce(t *testing.T) {
 		t.Fatalf("text = %q, want a", string(m.text))
 	}
 }
+
+func TestTheCursorMovesSoTextCanBeAddedInTheMiddle(t *testing.T) {
+	m := open("Card")
+	m.Nav("left") // deselects, cursor at the start
+	m.Nav("end")
+	m.Nav("left")
+	m.Nav("left")
+	m.Key("X", false, false, false)
+	if string(m.text) != "CaXrd" {
+		t.Fatalf("text = %q, want CaXrd", string(m.text))
+	}
+	m.Nav("delete")
+	m.Key("", true, false, false)
+	if string(m.text) != "Cad" {
+		t.Fatalf("text = %q, want Cad", string(m.text))
+	}
+	m.Nav("home")
+	m.Key(">", false, false, false)
+	if string(m.text) != ">Cad" {
+		t.Fatalf("text = %q, want >Cad", string(m.text))
+	}
+}

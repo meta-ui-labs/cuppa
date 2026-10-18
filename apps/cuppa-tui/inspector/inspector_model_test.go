@@ -262,3 +262,21 @@ func TestFirstKeyReplacesTheShownValueAndBackspaceClearsIt(t *testing.T) {
 		t.Fatalf("buf = %q, want x", m.buf)
 	}
 }
+
+func TestFieldCursorMovesSoTextCanBeAddedAfterAComma(t *testing.T) {
+	m := &Model{}
+	m.startEdit("name", "General, Adv")
+	m.MoveCursor("end") // leaves the selection
+	m.Key("a", false, false, false)
+	m.MoveCursor("left")
+	m.MoveCursor("left")
+	m.Key("X", false, false, false)
+	if m.buf != "General, AdXva" {
+		t.Fatalf("buf = %q", m.buf)
+	}
+	m.MoveCursor("home")
+	m.MoveCursor("delete")
+	if m.buf != "eneral, AdXva" {
+		t.Fatalf("buf = %q after Delete", m.buf)
+	}
+}
