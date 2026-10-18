@@ -24,7 +24,7 @@ func TestTypingWhileAButtonHasTheKeyboardChangesNothing(t *testing.T) {
 	}
 	m.Nav("shift+tab") // back to the field
 	m.Key("c", false, false, false)
-	if string(m.text) != "abc" {
-		t.Fatalf("text = %q, want abc", string(m.text))
+	if string(m.text) != "c" {
+		t.Fatalf("text = %q, want c (the first key replaces the prefilled text)", string(m.text))
 	}
 }

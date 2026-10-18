@@ -24,6 +24,9 @@ type Model struct {
 	title, label string
 	text         []rune
 	hint         string
+	// fresh is true until the first edit: the pre-filled text is selected, so
+	// typing replaces it and Backspace clears it.
+	fresh bool
 
 	// focus is 0 for the text field, 1 for OK and 2 for Cancel.
 	focus   int
@@ -35,7 +38,7 @@ type Model struct {
 
 // New returns a prompt with the text pre-filled.
 func New(title, label, initial string) *Model {
-	return &Model{title: title, label: label, text: []rune(initial)}
+	return &Model{title: title, label: label, text: []rune(initial), fresh: initial != ""}
 }
 
 // Place implements modal.Modal.
@@ -51,6 +54,9 @@ func (m *Model) Rect() design.Rect { return m.rect }
 func (m *Model) Lines() []string {
 	inner := m.rect.W - 6
 	field := theme.Fit(tail(string(m.text)+"█", inner), inner)
+	if m.fresh && m.focus == 0 {
+		field = theme.Selected(theme.Fit(tail(string(m.text), inner), inner))
+	}
 	hint := ""
 	if m.hint != "" {
 		hint = theme.Faded(m.hint)
@@ -114,11 +120,16 @@ func (m *Model) Key(text string, back, enter, esc bool) {
 		m.confirm()
 	case m.focus != 0:
 		// A button has the keyboard; typing goes nowhere.
+	case back && m.fresh:
+		m.text, m.fresh = nil, false
 	case back:
 		if len(m.text) > 0 {
 			m.text = m.text[:len(m.text)-1]
 		}
 	case text != "":
+		if m.fresh {
+			m.text, m.fresh = nil, false
+		}
 		m.text = append(m.text, []rune(text)...)
 	}
 }

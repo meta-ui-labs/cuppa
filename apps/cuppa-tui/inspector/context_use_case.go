@@ -57,7 +57,7 @@ func (m *Model) Context(w int) []string {
 func (m *Model) geometryRow(b *builder, n design.Node) {
 	b.text(theme.Title(" Select "))
 	if m.editing == "name" {
-		b.text(theme.Dim("Name ") + m.buf + "█")
+		b.text(theme.Dim("Name ") + m.shown())
 	} else {
 		name := n.Name
 		if n.Locked {
@@ -87,7 +87,7 @@ func (m *Model) barNumeric(b *builder, id design.NodeID, label, field string, v 
 	}
 	b.text(theme.Dim(label + " "))
 	if m.editing == field {
-		b.text(m.buf + "█ ")
+		b.text(m.shown() + " ")
 		return
 	}
 	b.addStep(theme.Bold(shown), func() { m.startEdit(field, initial) }, func(d int) { m.nudge(field, d) })

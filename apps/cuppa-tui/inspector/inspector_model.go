@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/meta-ui-labs/cuppa/apps/cuppa-tui/pointer"
+	"github.com/meta-ui-labs/cuppa/apps/cuppa-tui/theme"
 	"github.com/meta-ui-labs/cuppa/libs/canvas/editor"
 	"github.com/meta-ui-labs/cuppa/libs/catalog/definition"
 	"github.com/meta-ui-labs/cuppa/libs/document/design"
@@ -58,6 +59,7 @@ type Model struct {
 
 	editing string // field being typed into: "x", "y", "w", "h", "name" or "prop:<key>"
 	buf     string
+	fresh   bool // the shown value is still selected: the next key replaces it
 	message string
 
 	// previewing reads whether the design is being run, and setPreview starts
@@ -244,19 +246,37 @@ func (m *Model) Key(text string, backspace, enter, escape bool) {
 	case enter:
 		m.commit()
 	case backspace:
-		if r := []rune(m.buf); len(r) > 0 {
+		// The shown value starts out selected: Backspace clears all of it.
+		if r := []rune(m.buf); len(r) > 0 && !m.fresh {
 			m.buf = string(r[:len(r)-1])
+		} else {
+			m.buf = ""
 		}
-	default:
+		m.fresh = false
+	case text != "":
+		// The first character typed replaces the shown value.
+		if m.fresh {
+			m.buf = ""
+		}
 		m.buf += text
+		m.fresh = false
 	}
 }
 
-func (m *Model) startEdit(field, initial string) {
-	m.editing, m.buf, m.message = field, initial, ""
+// shown is the text being edited with its cursor, or highlighted while the
+// next key will replace all of it.
+func (m *Model) shown() string {
+	if m.fresh && m.buf != "" {
+		return theme.Selected(m.buf)
+	}
+	return m.buf + "█"
 }
 
-func (m *Model) cancelEdit() { m.editing, m.buf = "", "" }
+func (m *Model) startEdit(field, initial string) {
+	m.editing, m.buf, m.message, m.fresh = field, initial, "", true
+}
+
+func (m *Model) cancelEdit() { m.editing, m.buf, m.fresh = "", "", false }
 
 func (m *Model) commit() {
 	field, value := m.editing, m.buf
@@ -285,6 +305,7 @@ func (m *Model) Step(delta int) bool {
 		return false
 	}
 	m.buf = strconv.Itoa(n + delta)
+	m.fresh = false
 	m.apply(m.editing, m.buf)
 	return true
 }

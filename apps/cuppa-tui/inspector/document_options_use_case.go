@@ -64,7 +64,7 @@ func (m *Model) canvasNumeric(b *builder, label, field string, v int) {
 	b.text(" " + theme.Dim(label+"  "))
 	b.addMouse(theme.Button("[-]", true), func() { m.nudgeCanvas(field, -1) }).text(" ")
 	if m.editing == field {
-		b.text(m.buf + "█")
+		b.text(m.shown())
 	} else {
 		b.addStep(theme.Bold(fmt.Sprintf("%4d", v)), func() { m.startEdit(field, strconv.Itoa(v)) },
 			func(d int) { m.nudgeCanvas(field, d) })
@@ -103,7 +103,7 @@ func (m *Model) commitCanvas(field, value string) {
 func (m *Model) themeRow(b *builder, label, field, value, none string, set func(string) error) {
 	name := " " + theme.Dim(fmt.Sprintf("%-11s", label))
 	if m.editing == field {
-		b.text(name + m.buf + "█").end()
+		b.text(name + m.shown()).end()
 		return
 	}
 	swatch := theme.Faded("--")
@@ -210,7 +210,7 @@ func (m *Model) paletteRows(b *builder, doc design.Document) {
 		}
 		b.text(" ")
 		if m.editing == "swatch:"+name {
-			b.text(m.buf + "█")
+			b.text(m.shown())
 		} else {
 			b.text(swatch+" ").add(theme.Bold(name)+" "+theme.Faded(color), open)
 		}
@@ -218,7 +218,7 @@ func (m *Model) paletteRows(b *builder, doc design.Document) {
 	}
 	b.text(" ")
 	if m.editing == "swatch-new" {
-		b.text(m.buf + "█").end()
+		b.text(m.shown()).end()
 		return
 	}
 	b.add(theme.Button("[+ colour]", true), func() { m.startEdit("swatch-new", "") }).end()

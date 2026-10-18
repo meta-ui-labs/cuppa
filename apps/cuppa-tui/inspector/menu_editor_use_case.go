@@ -76,6 +76,10 @@ func (m *Model) menuProp(b *builder, n design.Node, p definition.PropSpec, value
 			if len(r) > w-1 {
 				r = r[len(r)-(w-1):]
 			}
+			if m.fresh && len(r) > 0 {
+				b.text(theme.Selected(theme.Fit(string(r), w)))
+				return
+			}
 			b.text(theme.Fit(string(r)+"█", w))
 			return
 		}

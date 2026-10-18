@@ -67,6 +67,9 @@ func (m *Model) SetSize(w, h int) {
 // FocusSearch gives the keyboard to the search box, as clicking it does.
 func (m *Model) FocusSearch() { m.searching = true }
 
+// EndSearch gives the keyboard back, keeping the query as typed.
+func (m *Model) EndSearch() { m.searching = false }
+
 // Searching reports whether the search box is taking keyboard input.
 func (m *Model) Searching() bool { return m.searching }
 
@@ -149,6 +152,8 @@ func (m *Model) Key(text string, backspace, enter, escape bool) {
 		if r := []rune(m.query); len(r) > 0 {
 			m.query = string(r[:len(r)-1])
 		}
+	case text == "":
+		return
 	default:
 		m.query += text
 	}
